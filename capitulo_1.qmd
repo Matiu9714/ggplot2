@@ -1,0 +1,40 @@
+---
+title: 'Introducción'
+author: 'Mateo Vega'
+format:
+  html:
+    embed-resources: true
+---
+
+Ggplot2 está diseñado para funcionar iterativamente. Se empieza con una capa que muestre los datos. Luego se añaden capas de anotaciones y resumenes estadisticos. Esto ayuda a crear los gráficos usando la misma estructura que se haría para diseñar un análisis. Ggplot2 está construido en una gramática especial para cumplir con esta razón.
+
+## Cuál es la gramática de las gráficas
+
+La gramática nos dice que una gráfica mapea los datos a sus atributos estéticos (color, figura, tamaño) de objetos geométricos (puntos, lineas, barras). La gráfica también puede incluir transformaciones estadísticas e información del sistema de coordinadas.
+
+Todas las gráficas se componen de **datos**, la información que quierses visualizar y un **mapeado**, la descripción de como las variables de los datos se mapean a atributos estéticos. Lo s cinco componentes de mapeo son:
+
+- Una **capa** es una colección de elementos geométricos y transformaciones estadísticas. los *geoms* representan lo que se vé en la gráfica: puntos, lineas, polígonos, etc. las *stats* resúmen los datos, conteo de observaciones par aun histograma o ajustar modelo lineal.
+
+- **scales** mapean valores en el espacio de los datos a valores en el espacio estético. Esto incluye el uso de color, forma, tamaño. Las escalaes también dibujan las leyendas y los ejes.
+
+- **coord**, el sistema de coordinadas, describe como las coordinadas de los datos son mapeados al plano de la gráfica. También da los ejes y gridlines para ayudar a leer la gráfica.
+
+- una **facet** especifica como romper y mostrar subconjuntos de los datos como pequeños multiplos.
+
+- el **theme** controla los puntos de display, como el tamaño de letra y el color del fondo.
+
+```{r}
+#| eval: false
+
+install.packages(c(
+  "colorBlindness", "directlabels", "dplyr", "ggforce", "gghighlight", 
+  "ggnewscale", "ggplot2", "ggraph", "ggrepel", "ggtext", "ggthemes", 
+  "hexbin", "Hmisc", "mapproj", "maps", "munsell", "ozmaps", 
+  "paletteer", "patchwork", "rmapshaper", "scico", "seriation", "sf", 
+  "stars", "tidygraph", "tidyr", "wesanderson" 
+))
+```
+
+
+
