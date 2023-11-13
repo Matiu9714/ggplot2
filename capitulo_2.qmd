@@ -1,0 +1,344 @@
+---
+title: 'Capitulo 2'
+author: 'Mateo Vega'
+format: 
+  html:
+    self_embed: true
+---
+
+### Datos de la economía de la gasolina
+
+Esta es la base de datos que se va a usar en el capítulo
+
+```{r}
+library(ggplot2)
+
+mpg
+```
+### Componentes clave
+
+Todo gráfico de ggplot2 tiene tres componentes clave:
+
+* **data**: los datos que se van a graficar.
+* **aesthetics**: Un mapeado entre variables y propiedades visuales.
+* **geometries**: las formas en que se van a graficar las variables.
+
+Un ejemplo:
+
+```{r}
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_point()
+```
+
+En este gráfico se defino por:
+
+* **datos**: mpg.
+* **aesthetics**: el tamaño del motor se mapea a la posición de X, la economía de la gasolina 
+se mapea a la posición de Y.
+* **geometries**: puntos.
+
+La estructura es la siguiente, los datos y las estéticas se definen en la función `ggplot()`, luego
+se añaden capas con `+`. Se puede hacer más corto sin necesidad de especificar algunos parámetros.
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point()
+```
+Entre más grande es el motor, menor es la economía de la gasolina.
+
+### Ejercicios
+
+1. How would you describe the relationship between cty and hwy? Do you have any concerns about drawing conclusions from that plot?
+
+```{r}
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point()
+```
+1. What does ggplot(mpg, aes(model, manufacturer)) + geom_point() show? Is it useful? How could you modify the data to make it more informative?
+
+```{r}
+ggplot(mpg, aes(model, manufacturer)) +
+  geom_point()
+```
+
+1. Describe the data, aesthetic mappings and layers used for each of the following plots. You’ll need to guess a little because you haven’t seen all the datasets and functions yet, but use your common sense! See if you can predict what the plot will look like before running the code.
+
+```{r}
+ggplot(mpg, aes(cty, hwy)) + geom_point()
+```
+```{r}
+ggplot(diamonds, aes(carat, price)) + geom_point()
+```
+
+```{r}
+ggplot(economics, aes(date, unemploy)) + geom_line()
+```
+
+
+```{r}
+ggplot(mpg, aes(cty)) + geom_histogram()
+```
+### Color, tamaño, forma y otras estéticas
+
+Para agregar variables a una gráfica podemos usar otras estéticas como color, forma, tamaño y forma
+
+```{r}
+aes(displ, hwy, colour = class)
+aes(displ, hwy, shape = drv)
+aes(displ, hwy, size = cyl)
+```
+Existe una escala para cada estética, ggplot2 convierte automáticamente datos a estéticas. La
+escala es responsable de crear una guia, ejes y leyenda que permite leer el gráfico convirtiendo 
+valores estéticos otra vez a valores.
+
+
+```{r}
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point()
+```
+
+Si queremos ajustar un valor fijo, sin escalarlo, se tiene que hacer fuera de `aes()`
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) + geom_point(aes(colour = 'blue'))
+```
+```{r}
+ggplot(mpg, aes(displ, hwy)) + geom_point(colour = 'blue')
+```
+### Faceting
+
+Faceting crea tablas de gráficos dividiendo los datos en subgrupos y mostrando la misma
+gráfica para cada subgrupo.
+
+Hay dos tipos: **grid** y **wrap**. **wrap** es el más útil.
+
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  facet_wrap(~ class)
+```
+### Ejercicios
+
+1. Use faceting to explore the 3-way relationship between fuel economy, engine size, and number of cylinders. How does faceting by number of cylinders change your assessement of the relationship between engine size and fuel economy?
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  facet_wrap(~ cyl)
+```
+### Plot geoms
+
+Las geometrias más usadas son:
+
+* **geom_smooth()**: Grafíca una linea suavizada con su error estándar.
+* **geom_bar()**: Grafíca la distribución de variables categóricas.
+* **geom_histogram() y geom_freqpoly()**: Grafícan la distribución de variables continuas.
+* **geom_boxplot()**: Grafíca el resúmen de la distribución de un conjunto de puntos.
+* **geom_path() y geom_line()**: Grafícan una linea entre los puntos.
+
+
+#### Agregar suavizado a un gráfico
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  geom_smooth() # usa método LOESS y formula y ~ x
+```
+Podemos cambiar parámetros como `se = False` para no mostrar el intervalo de confianza,
+`method` para cambiar el método de estimación, `span` con el método `loess` para el suavizado.
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() + 
+  geom_smooth(span = 0.2)
+```
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() + 
+  geom_smooth(span = 1)
+```
+`loess` no funciona muy bien para muchos datos, como alternativa podemos usar `method = 'gam'`, un modelo aditivo generalizado (esto hace R cuando hay más de 1000 datos)
+
+```{r}
+library(mgcv)
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() + 
+  geom_smooth(method = 'gam', formula = y ~ s(x))
+```
+También podemos usar `method = 'lm'`
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm')
+```
+También podemos usar `method = 'rlm'`, usa un algoritmo robusto para que los outliers no afecten el ajuste mucho.
+
+### Boxplots y puntos esparcidos
+
+Estos se usan cuando los datos tienen una variable categórica y una o más variables continuas, nos interesan los valores de la variable continua en diferentes niveles de la variable categórica.
+
+```{r}
+ggplot(mpg, aes(drv, hwy)) +
+  geom_point()
+```
+
+Ya que hay muchos puntos sobrepuestos, podemos usar `geom_jitter()`, `geom_boxplot()` o `geom_violin()`.
+
+```{r}
+ggplot(mpg, aes(drv, hwy)) + geom_jitter()
+ggplot(mpg, aes(drv, hwy)) + geom_boxplot()
+ggplot(mpg, aes(drv, hwy)) + geom_violin()
+```
+
+Cada uno tiene sus ventajas y desventajas, también podemos controlar `size`, `colour`, `shape` y para el boxplot y violin podemos controlar el color externo `colour` o el color interno con `fill`
+
+### Histogramas y poligonos de frecuencia
+
+Sirven para mostrar la distribución de una variable continua.
+
+```{r}
+ggplot(mpg, aes(hwy)) + geom_histogram()
+```
+```{r}
+ggplot(mpg, aes(hwy)) + geom_freqpoly()
+```
+
+Se puede controlar el ancho de las barras con `binwidth`, si no se quieren espaceadas igual se puede usar `breaks`
+
+```{r}
+ggplot(mpg, aes(hwy)) + geom_histogram(binwidth = 2.5)
+```
+```{r}
+ggplot(mpg, aes(hwy)) + geom_freqpoly(binwidth = 1)
+```{r}
+```
+Una alternativa es usar `geom_density()`, tienen más computaciones, también suponen que la distribución es continua, sin limites y suavizada.
+
+```{r}
+ggplot(mpg, aes(displ, colour = drv)) +
+  geom_freqpoly(binwidth = 0.5)
+```
+```{r}
+ggplot(mpg, aes(displ, fill = drv)) +
+  geom_histogram(binwidth = 0.5) +
+  facet_wrap(~drv, ncol = 1)
+```
+### Graficos de barra
+
+Son el caso discreto del histograma
+
+```{r}
+ggplot(mpg, aes(manufacturer)) + 
+  geom_bar()
+```
+El gráfico de barra hace por default la cuenta de cuantas obervaciones tiene cada categoría, si queremos que haga otra cosa, tenemos que usar `stat = 'identity'`
+
+```{r}
+drugs <- data.frame(
+  drug = c("a", "b", "c"),
+  effect = c(4.2, 9.7, 6.1)
+)
+```
+
+```{r}
+ggplot(drugs, aes(drug, effect)) + geom_bar(stat = "identity")
+```
+```{r}
+ggplot(drugs, aes(drug, effect)) + geom_point()
+```
+### Series de tiempo 
+
+Graficos de linea unen los punto de izquierda a derecha, los graficos de path unen los puntos en el orden que aparecen el conjunto de datos:
+
+```{r}
+ggplot(economics, aes(date, unemploy / pop)) +
+  geom_line()
+```
+
+```{r}
+ggplot(economics, aes(date, unemploy)) +
+  geom_line()
+```
+Si quisieramos graficar las dos series en el mismo grafico podemos graficar ambos y usar path para ver como cambian en el tiempo
+
+```{r}
+ggplot(economics, aes(unemploy / pop, uempmed)) +
+  geom_path() +
+  geom_point()
+```
+```{r}
+year = function(x) as.POSIXlt(x)$year + 1900
+ggplot(economics, aes(unemploy / pop, uempmed)) + 
+  geom_path(colour = 'grey50') +
+  geom_point(aes(colour = year(date)))
+```
+### Cambiar lo ejes
+
+Podemos cambiar las leyendas con `xlab()` y `ylab()`
+
+```{r}
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(alpha = 1 /3)
+```
+```{r}
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(alpha = 1 / 3) +
+  xlab('Conducción en ciudad (mpg)') +
+  ylab('Conducción en autopista (mpg)')
+```
+```{r}
+# quitar los labels
+
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(alpha = 1 / 3) +
+  xlab(NULL) +
+  ylab(NULL)
+```
+Podemos cambiar los límites de los ejes con `xlim()` y `ylim()`
+
+```{r}
+ggplot(mpg, aes(drv, hwy)) +
+  geom_jitter(width = 0.25)
+```
+
+```{r}
+ggplot(mpg, aes(drv, hwy)) +
+  geom_jitter(width = 0.25) +
+  xlim('f', 'r') +
+  ylim(20, 30)
+```
+```{r}
+ggplot(mpg, aes(drv, hwy)) +
+  geom_jitter(width = 0.25, na.rm = TRUE) +
+  ylim(NA, 30)
+```
+
+### Salidas
+
+Se puede guardar una gráfica y modificarla
+
+```{r}
+p = ggplot(mpg, aes(displ, hwy, colour = factor(cyl))) +
+  geom_point()
+```
+
+* Se puede mostrar en pantalla:
+
+```{r}
+print(p)
+```
+
+* Guardar en el computador:
+
+```{r}
+ggsave('grafica.png', p, width = 5, height = 5)
+```
+
+* Describir su estructura:
+
+```{r}
+summary(p)
+```
+
