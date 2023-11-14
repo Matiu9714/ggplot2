@@ -3,7 +3,7 @@ title: 'Capitulo 2'
 author: 'Mateo Vega'
 format: 
   html:
-    self_embed: true
+    embed-resources: true
 ---
 
 ### Datos de la economía de la gasolina

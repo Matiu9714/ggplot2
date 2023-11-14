@@ -3,7 +3,7 @@ title: 'Geoms individuales'
 author: 'Mateo Vega'
 format:
   html:
-    self_embed: TRUE
+    embed-resources: true
 ---
 
 ### Tipos básicos de gráficos
