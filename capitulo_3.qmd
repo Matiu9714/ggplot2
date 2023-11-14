@@ -1,0 +1,52 @@
+---
+title: 'Geoms individuales'
+author: 'Mateo Vega'
+format:
+  html:
+    self_embed: TRUE
+---
+
+### Tipos básicos de gráficos
+
+Estas geometrias son las bases de ggplot2, son las que se usan para construir geometrias más complejas. Todas son de dos dimensiones que requieren `x` y `y`, todas entienden `colour` y `size`, las geometrias que se puedan rellenar también entienden `fill`.
+
+* **geom_area()**: Dibuja un gráfico de área.
+* **geom_bar(stat = 'Identity')**: Crea un gráfico de barras. El default cuanta los valores. Identity deja los valores sin cambiar.
+* **geom_line()**: Dibuja una gráfico de linea, la estética `group` determina que observaciones están conectadas. `geom_line()` dibuja los puntos de izquierda a derecha, `geom_path()` dibuja las lineas en el orden que están organizadas en los datos.
+
+* **geom_polygon()**: Dibjua poligonos, que son paths rellenos. Cada vertice del poligón requiere una fila separada en los datos.
+
+* **geom_rect(), geom_tile(), geom_raster()**: Dibujan rectangulos.
+
+* **geom_text()**: Agrega texto a la gráfica. Requiere la estética `label()` que provee el texto a mostrar
+, tiene parámetros como:  `angle`, `family`, `fontface`,  `hjust` y `vjust` que controlan la apariencia del texto.
+
+
+```{r}
+library(ggplot2)
+
+df <- data.frame(
+  x = c(3, 1, 5), 
+  y = c(2, 4, 6), 
+  label = c("a","b","c")
+)
+```
+
+```{r}
+p <- ggplot(df, aes(x, y, label = label)) + 
+  labs(x = NULL, y = NULL) + # esconde los nombres de los ejes
+  theme(plot.title = element_text(size = 12)) # cambia el tamaño del titulo
+p + geom_point() + ggtitle("point")
+p + geom_text() + ggtitle("text")
+p + geom_bar(stat = "identity") + ggtitle("bar")
+p + geom_tile() + ggtitle("raster")
+```
+
+```{r}
+p + geom_line() + ggtitle("line")
+p + geom_area() + ggtitle("area")
+p + geom_path() + ggtitle("path")
+p + geom_polygon() + ggtitle("polygon")
+```
+
+### Ejercicios
