@@ -1,0 +1,7 @@
+---
+title: 'Geometrías colectivas'
+author: 'Mateo Vega'
+format:
+  html:
+    embed-resources: true
+---
