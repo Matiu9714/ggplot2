@@ -1,0 +1,368 @@
+---
+title: 'Mapas'
+author: 'Mateo Vega'
+format:
+  html:
+    embed-resources: true
+---
+
+El problema de graficar datos geoespaciales se puede decomponer en dos problemas: usar información para dibujar un mapa y agregar metadatos al mapa.
+
+## Mapas poligonales
+
+
+El método más fácil para dibujar mapas es usar `geom_polygon()` para dibujar los límites de cada región, por ejemplo
+
+```{r}
+#| warning: false
+library(tidyverse)
+
+mi_counties <- map_data("county", "michigan") |> 
+  select(lon = long, lat, group, id = subregion)
+head(mi_counties)
+```
+
+Tenemos cuatro variables: `lat` y `lon` especifican la latidud y la longitud de un vertice (esquina de un polígono), `id` el nombre de una región y `group` un identificador único para áreas contínuas dentro de una región. Podemos graficar `mi_counties` usando `geom_point()`
+
+```{r}
+ggplot(mi_counties, aes(lon, lat)) +
+  geom_point(size = .25, show.legend = FALSE) +
+  coord_quickmap()
+```
+
+  Ahora se convierte en un mapa usando `geom_polygon()`
+  
+```{r}
+ggplot(mi_counties, aes(lon, lat, group = group)) +
+  geom_polygon(fill = "white", colour = "grey50") +
+  coord_quickmap()
+```
+  
+En ambos se usa `coord_quickmap()` para ajustar los ejes y asegurarnos que la longitúd y latitúd se rendericen en la misma escala. 
+
+
+## Características simples de un mapa
+
+Hay unas limitaciones al trabajar con datos como el anterior, estos datos no son usados en los mapas de la vida real. Los mapas se codifican con "características simples (sf)", estándar para los mapas. `geom_sf()` y `coord_sf()` son funciones de ggplot que funcionan con esto.
+
+```{r}
+library(ozmaps)
+library(sf)
+```
+```{r}
+oz_states <- ozmaps::ozmap_states
+oz_states
+```
+Los datos son esencialmente un **tibble** con 9 filas y 2 columnas. La columna más importante es `geometry` la cual especifíca una geomtería espacial para cada uno de los estados y territorios. Cada elemento en `geometry` es un multipoligono que contiene datos especificando los vertices de uno o más polígonos que demarcan la frontera de una región.
+
+```{r}
+ggplot(oz_states) +
+  geom_sf() +
+  coord_sf()
+```
+
+Si los datos son un objeto sf `geom_sf()` puede detectar la geomtería, así no se llame geometry. Se puede mapear manualmente haciendo `aes(geometry = columna)`. `coord_sf()` gobierna la proyección del mapa.
+
+### Mapas en capas
+
+A veces se quiere sobreponer un mapa a otro. ggplot permite anadir multiples `geom_sf()` a una gráfica. Por ejemplo se va a graficar el mapa de Australia con las regiones separadas por color y se le agrega el mapan de las regiones electorales.
+
+```{r}
+oz_states <- ozmaps::ozmap_states |> filter(NAME != "Other Territories")
+oz_votes <- rmapshaper::ms_simplify(ozmaps::abs_ced)
+```
+
+Aquí usamos `ms_simplify` para extraer las regiones electorales en una forma simplificada. `abs_ced` tiene originalmente una resolución más grande.
+
+```{r}
+ggplot() +
+  geom_sf(data = oz_states, mapping = aes(fill = NAME), show.legend = FALSE) +
+  geom_sf(data = oz_votes, fill = NA) +
+  coord_sf()
+```
+### Mapas con etiquetas
+
+Agregar etiquetas a un mapa se puede hacer con `geom_sf_label()` y `geom_sf_text()`. Por ejemplo vamos a mostrar los nombres del electorado de la región metropolitana de Sidney, se hace un zoom a Sidney especificando `xlim` y `ylim` en `coord_sf()` y luego `geom_sf_label()` para sobreponer los electorados con una etiqueta.
+
+```{r}
+# Filtrar electorados en el área metroplitana de Sydney
+
+sydney_map <- ozmaps::abs_ced |> 
+  filter(NAME %in% c(
+  "Sydney", "Wentworth", "Warringah", "Kingsford Smith", "Grayndler", "Lowe", 
+  "North Sydney", "Barton", "Bradfield", "Banks", "Blaxland", "Reid", 
+  "Watson", "Fowler", "Werriwa", "Prospect", "Parramatta", "Bennelong", 
+  "Mackellar", "Greenway", "Mitchell", "Chifley", "McMahon"
+  ))
+```
+
+```{r}
+# Dibujar el mapa electoral
+
+ggplot(sydney_map) +
+  geom_sf(aes(fill = NAME), show.legend = FALSE) +
+  coord_sf(xlim = c(150.97, 151.3), ylim = c(-33.98, -33.79)) +
+  geom_sf_label(aes(label = NAME), label.padding = unit(1, "mm"))
+```
+
+### Agregando otras geometrías
+
+Por ejemplo si queremos graficar las ubicaciones de las capitales en el mapa usando `geom_point()`
+
+```{r}
+oz_capitals <- tibble::tribble( 
+  ~city,           ~lat,     ~lon,
+  "Sydney",    -33.8688, 151.2093,  
+  "Melbourne", -37.8136, 144.9631, 
+  "Brisbane",  -27.4698, 153.0251, 
+  "Adelaide",  -34.9285, 138.6007, 
+  "Perth",     -31.9505, 115.8605, 
+  "Hobart",    -42.8821, 147.3272, 
+  "Canberra",  -35.2809, 149.1300, 
+  "Darwin",    -12.4634, 130.8456, 
+)
+
+ggplot() +
+  geom_sf(data = oz_votes) +
+  geom_sf(data = oz_states, colour = "black", fill = NA) +
+  geom_point(data = oz_capitals, mapping = aes(x = lon, y = lat), colour = "red") +
+  coord_sf()
+```
+
+Aquí con `geom_point` se podría especificar más datos, por ejemplo con la estética size.
+
+
+## Proyecciones de mapas
+
+Si se necesita una precisión más grande en estas gráficas hay que tener en cuenta el **geodetic datum**, hay diferentes tipos de datum **Norte américa (NAD83)**, para la perspectiva global **(WGS84)** es mejor.
+
+El segunod problema es que la tierra es aproximadamente elipsoidal, no es posible mapear la superficie de un elipsoide a un plano sin distorsión. Esto es trabajo de la proyección del mapa.
+
+
+Las proyecciones de mapa se clasifican en terminos de las propiedades geométricas que preservan:
+
+* Proyecciones que preservan el área se aseguran que las regiones de igual área en el globo se dibujen con área igual en el mapa.
+* Proyecciones que preservan la forma.
+
+
+No se puede ser ambas a la vez. Combinando le **datum**, el tipo de proyección y los parámetros de proyección, especifican un sistema de referencia de coordinadas (CRS).
+
+```{r}
+st_crs(oz_votes)
+```
+
+Este **well-known text (WKT)** es una cadena que usa sf internamente. Para dar entradas que sf entienda un método es proveer entradas numéricas en la forma de códigos **EPSG**.
+
+```{r}
+st_crs(oz_votes) == st_crs(4283)
+```
+
+En ggplot2, el CRS es controlado por `coord_sf()` la cual asegura que todas las capas usaen la misma proyección, Por defecto `coord_sf()` usa el CRS asociado a la columna geometría de los datos. Si se necesita cambiar se usa `st_crs()`
+
+```{r}
+ggplot(oz_votes) + geom_sf()
+```
+
+```{r}
+ggplot(oz_votes) + geom_sf() + coord_sf(crs = st_crs(3112))
+```
+
+## Trabajando con datos sf
+
+
+Una ventaja de las **simple features (SF)** sobre otras representaciones espaciales es que las unidades geográficas pueden tener una estructura complicada. Un ejemplo
+
+```{r}
+edenmonaro <- ozmaps::abs_ced |> filter(NAME == "Eden-Monaro")
+
+p <-ggplot(edenmonaro) + geom_sf()
+p + coord_sf(xlim = c(147.75, 150.25), ylim = c(-37.5, -34.5))
+```
+```{r}
+p + coord_sf(xlim = c(150, 150.25), ylim = c(-36.3, -36))
+```
+
+Eden-Monaro tiene dos polígonos diferentes uno largo y una isla pequeña. La grande tiene un hueco en la mitad debido esa área es una unidad política diferente. Esto es un ejemplo de una geometría `MULTIPOLYGON`.
+
+Usemos dplyr para tomar sólo el objeto de la geometría
+
+```{r}
+edenmonaro <- edenmonaro |>  pull(geometry)
+```
+
+Los metadatos de edenmonaro pueden ser obtenidas con funciones **helper**. Por ejemplo `st_geometry_type()` extrae el tipo de geometría, `st_dimension()` extrae el número de dimensiones, `st_bbox()` extrae la caja de limites como un vector numérico y `st_crs()` extrae el CRS como una lsta con dos componentes (EPSG y proj4string)
+
+```{r}
+st_bbox(edenmonaro)
+```
+
+Cuando imprimimos `edenmonaro` la salida es toda la información adicional
+
+```{r}
+edenmonaro
+```
+
+
+Cuando ponemos el multipoligono en dos polígonos distintos
+
+```{r}
+st_cast(edenmonaro, "POLYGON")
+```
+Esto puede ser útil, considerando los electorados, que consisten en 69 isals en adición a las región costal
+
+```{r}
+dawson <- ozmaps::abs_ced |> 
+  filter(NAME == "Dawson") |> 
+  pull(geometry)
+dawson
+```
+```{r}
+ggplot(dawson) +
+  geom_sf() +
+  coord_sf()
+```
+
+Ahora, solo estámos interesados en mapear las islas. Podemos usar primero `st_cast()` para partir el electorado de Dawson en polígonos, luego usamos `st_area()` para calcular el área del polígono y `which.max()` para encontrar el polígono con la mayor área
+
+```{r}
+dawson <- st_cast(dawson, "POLYGON")
+which.max(st_area(dawson))
+```
+La parte grande de la región corresponde al polígono 69 entre Dawson. POdemos mapear el mapa mostrando sólo las islas
+
+```{r}
+ggplot(dawson[-69]) +
+  geom_sf() +
+  coord_sf()
+```
+
+## Mapas **raster**
+
+Una segunda forma de de obtener información geoespacial para mapear son los datos **raster**. **Raster** toman la forma de imágenes que incluyen metadatos que pueden ser usados para mapear la información de la imágen a la superficie de la tierra. Los formatos se pueden leer en R con `sf::gdal_read()` pero pocas veces se tiene que llamar esta función.
+
+Por ejemplo, usamos una imágen satelital, guardad en un archivo **GeoTIFF**
+
+```{r}
+library(stars)
+```
+```{r}
+sat_vis <- read_stars(
+  "IDE00422.202001072100.tif",
+  RasterIO = list(nBufXSize = 600, nBufYSize = 600)
+)
+```
+El primer argumento especifica la dirección al archivo raster, `RasterIO` pasa una lista de parámetros de nivel bajo a GDAL. Usamos `nBufXSize` y `nBufYSize` para controlar la resolución (600 x 600). Veamos el objeto `sat_vis`
+
+
+```{r}
+sat_vis
+```
+
+Se guarda como un arreglo de tres dimensiones. Para graficar usamos `geom_stars()`
+
+```{r}
+ggplot() +
+  geom_stars(data = sat_vis) +
+  coord_equal()
+```
+
+`geom_stars()` requiere que se pase `data` que sea un objeto **stars**. El color azul es por defecto de ggplot2, para separar en los colores verdaderos hay que separar las bandas con `facet_wrap()`
+
+```{r}
+ggplot() +
+  geom_stars(data = sat_vis, show.legend = FALSE) +
+  facet_wrap(vars(band)) +
+  coord_equal() +
+  scale_fill_gradient(low = "black", high = "white")
+```
+
+Una dificultad es que es dificil ver donde están los pedazos de tierra, para esto podemos sobreponer los mapas vectoriales. Antes los datos se deben transformar con `st_transform()`
+
+```{r}
+oz_states <-st_transform(oz_states, crs = st_crs(sat_vis))
+```
+
+Ahora podemos dibujar el mapa vectorial encima de la imágen raster
+
+```{r}
+ggplot() +
+  geom_stars(data = sat_vis, show.legend = FALSE) +
+  geom_sf(data = oz_states, fill = NA, color = "white") +
+  coord_sf() +
+  theme_void() +
+  scale_fill_gradient(low = "black", high = "white")
+```
+
+Si queremos añadir más datos, por ejemplo las capitales. Ya que estos datos no están asociados con un CRS y no están en la misma escala de `sat_vis` también hay que transformarlos.
+
+```{r}
+cities <- oz_capitals |> 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+```
+
+Esta proyección usa el EPSG 4326, una proyección elipsoidal usando latitúd y longitúd y depende de el datum WGS84, ahora podemos transformarlo
+
+```{r}
+cities <- st_transform(cities, st_crs(sat_vis))
+```
+
+
+Ahora puede sobreponerse en la gráfica
+
+```{r}
+ggplot() + 
+  geom_stars(data = sat_vis, show.legend = FALSE) +
+  geom_sf(data = oz_states, fill = NA, color = "white") + 
+  geom_sf(data = cities, color = "red") + 
+  coord_sf() + 
+  theme_void() + 
+  scale_fill_gradient(low = "black", high = "white")
+```
+
+Podríamos agreagr otra capa a la visualización para etiquetar las ciudades
+
+```{r}
+ggplot() + 
+  geom_stars(data = sat_vis, show.legend = FALSE) +
+  geom_sf(data = oz_states, fill = NA, color = "white") + 
+  geom_sf(data = cities, color = "red") + 
+  coord_sf() + 
+  theme_void() + 
+  geom_sf_text(data = cities, mapping = aes(label = city)) +
+  scale_fill_gradient(low = "black", high = "white")
+```
+
+Pero esto necesita más personalización para que quede bien en próximos capítulos
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
