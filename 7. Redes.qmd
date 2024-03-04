@@ -1,0 +1,274 @@
+---
+title: 'Redes'
+author: 'Mateo Vega'
+format:
+  html:
+    embed-resources: true
+---
+
+## Qué son datos de redes
+
+
+Las redes son datos que consisten de entidades (**ndoos o vertices**) y sus relaciones (**edges o links**). Estos datos no son representables en un sólo data frame, sin embargo se puede codificar como dos data frames, uno codificando los nodos y uno codificando los edges.
+
+
+### Una API tidy de manipulación de redes
+
+`tidygraph` se puede considerar una API para datos de redes, por ejemplo se crea una red aleatoria usando el método **Erdos-Renyi** de muestreo
+
+```{r}
+#| warning: false
+
+library(tidygraph)
+library(ggplot2)
+
+graph <- play_erdos_renyi(n = 10, p = 0.2) |> 
+  activate(nodes) |> 
+  mutate(class = sample(letters[1:4], n(), replace = TRUE)) |> 
+  activate(edges) |> 
+  arrange(.N()$class[from])
+
+graph
+```
+
+`activate()` le informa a tidygraph qué parte de la red se está trabajando, `.N()` da acceso a los datos del nodo del grafo así se esté trabajando en los bordes (también existe `.E()` para acceder a los bordes y `.G()` para acceder al grafo.)
+
+### Conversión
+
+Los datos de resdes pueden ser presentados en diferentes formatos dependiendo de donde se obtengan. Se puede usar `as_tbl_graph()` para convertirlos. Un ejemplo de convertir un dataframe codificado como **edgelist** y convertir el resultado de `hclust()`
+
+```{r}
+data(highschool, package = "ggraph")
+head(highschool)
+```
+
+```{r}
+hs_graph <- as_tbl_graph(highschool, directed = FALSE)
+hs_graph
+```
+```{r}
+luv_clust <- hclust(dist(luv_colours[, 1:3]))
+luv_graph <- as_tbl_graph(luv_clust)
+luv_graph
+```
+
+tidygraph agrega la información automáticamente cuando convierte, por ejemplo el año.
+
+### Algorítmos
+
+tidygraph tiene soporte para muchos algoritmos como por ejemplo calculos de centralidad, ranking, agrupamiento. El API del algoritmo está diseñado para ser usado dentro de `mutate()` y siempre devuelve un vector.
+
+```{r}
+graph |> 
+  activate(nodes) |> 
+  mutate(centrality = centrality_pagerank()) |> 
+  arrange(desc(centrality))
+```
+
+## Visualizar redes
+
+Para mostrar la topología se emplean **layouts**. Estos son algorítmos que usan la estructura de redes para calcular (a veces arbitrariamente) valores de `x` y `y` para cada nodo para que se puedan visualizar.
+
+
+### Configurando la visualización
+
+ggraph inicia con `ggraph()`, el primer argumento son los datos, puede ser un **tbl_graph** o un objeto que se pueda convertir en uno. El segundo argumento es la función **layout** y los argumentos pasados a la función. Por defecto la **layout** escogida se escogerá una apropiada para el tipo de grafo. [Guia para layouts](https://ggraph.data-imaginist.com/articles/Layouts.html).
+
+
+### Especificar un **layout**
+
+Este argumento puede tener una cadena o una función que coincida con alguno de los **layouts** incluidos.
+
+```{r}
+library(ggraph)
+ggraph(hs_graph) + # por defecto
+  geom_edge_link() +
+  geom_node_point()
+```
+
+```{r}
+ggraph(hs_graph, layout = "drl") +
+  geom_edge_link() +
+  geom_node_point()
+```
+
+```{r}
+hs_graph <- hs_graph |> 
+  activate(edges) |> 
+  mutate(edge_weights = runif(n()))
+ggraph(hs_graph, layout = "stress", weights = edge_weights) +
+  geom_edge_link(aes(alpha = edge_weights)) +
+  geom_node_point() +
+  scale_edge_alpha_identity()
+```
+
+### Circularidad
+
+Para crear un **layout** circular la forma correcta es usar `coord_polar()` para cambiar el sistema de coordinadas, pero aquí sólo queremos cambiar la posición de los nodos, no de los bordes
+
+```{r}
+ggraph(luv_graph, layout = "dendrogram", circular = TRUE) +
+  geom_edge_link() +
+  coord_fixed()
+```
+
+```{r}
+ggraph(luv_graph, layout = "dendrogram") +
+  geom_edge_link() +
+  coord_polar() +
+  scale_y_reverse()
+```
+`coord_polar()` dobla nuestros bordes, lo cual no queremos.
+
+### Dibujando nodos
+
+
+Estos son dibujados como puntos de la misma forma que los puntos en un gráfico de dispersión [Guia nodos](https://ggraph.data-imaginist.com/articles/Nodes.html). Todos las geometrías está en `geom_node_` y la más usada es `geom_node_point()`. No se necesita especificar el `x` y `y`, el mapeado es implícito. Tenemos acceso a `filter()` que permite no dibujar nodos en especifico. También se pueden usar algorítmos dentro de `aes()` y se evalúan en el grafo visualizado.
+
+```{r}
+ggraph(hs_graph, layout = "stress") +
+  geom_edge_link() +
+  geom_node_point(
+    aes(filter = centrality_degree() > 2,
+        colour = centrality_power()),
+    size = 4
+  )
+```
+
+Hay geometrías mas especializadas, muchas atadas a un tipo especifico de **layout**
+
+```{r}
+ggraph(luv_graph, layout = "treemap") +
+  geom_node_tile(aes(fill = depth))
+```
+
+### Dibujando bordes
+
+Estos son más complicados que los nodos, debido a que hay muchas formas de conectar dos cosas. [Guia bordes](https://ggraph.data-imaginist.com/articles/Edges.html). `geom_edge_link()` dibuja una linea recta entre nodos, por dentro divide la linea en muchos fragmentos pequeños y es posible dibujar un gradiente con el borde para mostrar dirección'
+
+```{r}
+ggraph(graph, layout = "stress") +
+  geom_edge_link(aes(alpha = after_stat(index)))
+```
+
+Esta expansión se vuelve problemática si se dibujan muchos bordes, ggraph la dibj=uja como una geometría simple que no permite gradiente. Ahora, si se quiere interpolar entre dos valores en los puntos finales
+
+```{r}
+ggraph(graph, layout = "stress") +
+  geom_edge_link2(
+    aes(colour = node.class),
+    width = 3,
+    lineend = "round"
+  )
+```
+
+Cuando se tienen varios multiples bordes entre nlos mismos nodos, usar una linea recta haría que desaparecieran algunas conexiones, se puede usar `geom_edge_fan()` o `geom_edge_parallel()`
+
+```{r}
+ggraph(hs_graph, layout = "stress") +
+  geom_edge_fan()
+```
+
+```{r}
+ggraph(hs_graph, layout = "stress") +
+  geom_edge_parallel()
+```
+
+Estas geomterías solo se deben usar para grafos simples ya que incerementan mucho la información en el gráfica. Viendo Ahora viendo árboles y y dendogramas, un tipo especial es **elbow edge**
+
+```{r}
+ggraph(luv_graph, layout = "dendrogram", height = height) +
+  geom_edge_elbow()
+```
+```{r}
+ggraph(luv_graph, layout = "dendrogram", height = height) +
+  geom_edge_bend()
+```
+
+```{r}
+ggraph(luv_graph, layout = "dendrogram", height = height) +
+  geom_edge_diagonal()
+```
+#### Cortando los bordes alrededor de los nodos
+
+Si se usan flechas mostrando la direccionalidad, un problema común es que el nodo va a sobreponerse al borde ya que va hasta el centro del nodo
+
+```{r}
+ggraph(graph, layout = "stress") +
+  geom_edge_link(arrow = arrow()) +
+  geom_node_point(aes(colour = class), size = 8)
+```
+
+Queremos que los bordes paren antes de llegar al punto de osecurecer la flecha, usamos `start_cap` y `end_cap`
+
+```{r}
+ggraph(graph, layout = "stress") +
+  geom_edge_link(
+    arrow = arrow(),
+    start_cap = circle(5, "mm"),
+    end_cap = circle(5, "mm")
+  ) +
+  geom_node_point(aes(colour = class), size = 8)
+```
+
+
+#### Un borde no siempre es una linea
+
+Los nodos y bordes son conceptos abstractos y se pueden visualizar de diferentes maneras, por ejemplo un gráfico de matriz el cual muestra nodos implicitamente por posición de fila y columna
+
+```{r}
+ggraph(hs_graph, layout = "matrix", sort.by = node_rank_traveller()) +
+  geom_edge_point()
+```
+
+### Faceting
+
+ggraph provee su propia versión de `facet_wrap()` y `facet_grid()`. `facet_nodes()` y `faces_edges()`. Si un borde va entre dos nodos en el mismo panel se va a mostrar en el panel, si se divide en multiples paneles se borrará.
+
+```{r}
+ggraph(hs_graph, layout = "stress") +
+  geom_edge_link() +
+  geom_node_point() +
+  facet_edges(~year)
+```
+
+Se ve una evolución en las amistades entre años.
+
+```{r}
+ggraph(hs_graph, layout = "stress") +
+  geom_edge_link() +
+  geom_node_point() +
+  facet_nodes(~ group_spinglass())
+```
+
+## Otras fuentes
+
+[Guía tidygraph](https://tidygraph.data-imaginist.com).
+[Guía ggraph](https://ggraph.data-imaginist.com)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
