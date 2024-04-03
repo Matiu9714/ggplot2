@@ -1,0 +1,15 @@
+---
+title: 'Anotaciones'
+author: 'Mateo Vega'
+format:
+  html:
+    embed-resources: true
+---
+
+
+## Titutlo de ejes y gráfica
+
+- Qué función ayuda a modificar los títulos?
+
+
+
